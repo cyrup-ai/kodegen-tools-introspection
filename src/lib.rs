@@ -3,11 +3,11 @@
 //! This module provides tools for understanding how tools are being used,
 //! viewing execution history, and analyzing usage patterns.
 
-mod get_recent_tool_calls;
-mod get_usage_stats;
+mod inspect_tool_calls;
+mod inspect_usage_stats;
 
-pub use get_recent_tool_calls::GetRecentToolCallsTool;
-pub use get_usage_stats::GetUsageStatsTool;
+pub use inspect_tool_calls::InspectToolCallsTool;
+pub use inspect_usage_stats::InspectUsageStatsTool;
 
 /// Start the introspection HTTP server programmatically
 ///
@@ -36,8 +36,9 @@ pub async fn start_server(
     };
 
     let shutdown_timeout = Duration::from_secs(30);
+    let session_keep_alive = Duration::from_secs(300); // 5 minutes
 
-    create_http_server("introspection", addr, tls_config, shutdown_timeout, |_config, tracker| {
+    create_http_server("introspection", addr, tls_config, shutdown_timeout, session_keep_alive, |_config, tracker| {
         let usage_tracker = tracker.clone();
         Box::pin(async move {
             let mut tool_router = ToolRouter::new();
@@ -48,13 +49,13 @@ pub async fn start_server(
             (tool_router, prompt_router) = register_tool(
                 tool_router,
                 prompt_router,
-                crate::GetUsageStatsTool::new(usage_tracker.clone()),
+                crate::InspectUsageStatsTool::new(usage_tracker.clone()),
             );
 
             (tool_router, prompt_router) = register_tool(
                 tool_router,
                 prompt_router,
-                crate::GetRecentToolCallsTool::new(),
+                crate::InspectToolCallsTool::new(),
             );
 
             Ok(RouterSet::new(tool_router, prompt_router, managers))

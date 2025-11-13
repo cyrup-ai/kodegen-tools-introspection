@@ -1,20 +1,19 @@
 use kodegen_mcp_tool::Tool;
 use kodegen_mcp_tool::error::McpError;
-use kodegen_mcp_schema::introspection::{GetUsageStatsArgs, GetUsageStatsPromptArgs};
+use kodegen_mcp_schema::introspection::{InspectUsageStatsArgs, InspectUsageStatsPromptArgs};
 use kodegen_utils::usage_tracker::UsageTracker;
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::{Value, json};
+use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 
 // ============================================================================
 // TOOL STRUCT
 // ============================================================================
 
 #[derive(Clone)]
-pub struct GetUsageStatsTool {
+pub struct InspectUsageStatsTool {
     usage_tracker: UsageTracker,
 }
 
-impl GetUsageStatsTool {
+impl InspectUsageStatsTool {
     #[must_use]
     pub fn new(usage_tracker: UsageTracker) -> Self {
         Self { usage_tracker }
@@ -25,12 +24,12 @@ impl GetUsageStatsTool {
 // TOOL IMPLEMENTATION
 // ============================================================================
 
-impl Tool for GetUsageStatsTool {
-    type Args = GetUsageStatsArgs;
-    type PromptArgs = GetUsageStatsPromptArgs;
+impl Tool for InspectUsageStatsTool {
+    type Args = InspectUsageStatsArgs;
+    type PromptArgs = InspectUsageStatsPromptArgs;
 
     fn name() -> &'static str {
-        "get_usage_stats"
+        "inspect_usage_stats"
     }
 
     fn description() -> &'static str {
@@ -38,9 +37,20 @@ impl Tool for GetUsageStatsTool {
          success/failure rates, and performance metrics."
     }
 
-    async fn execute(&self, _args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, _args: Self::Args) -> Result<Vec<Content>, McpError> {
+        let mut contents = Vec::new();
+
+        // Content 1: Terminal formatted summary (use existing get_summary method)
         let summary = self.usage_tracker.get_summary();
-        Ok(json!({ "summary": summary }))
+        contents.push(Content::text(summary));
+
+        // Content 2: JSON metadata (use new get_stats method)
+        let stats = self.usage_tracker.get_stats();
+        let json_str = serde_json::to_string_pretty(&stats)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -58,7 +68,7 @@ impl Tool for GetUsageStatsTool {
             PromptMessage {
                 role: PromptMessageRole::Assistant,
                 content: PromptMessageContent::text(
-                    "I can show you usage statistics using the get_usage_stats tool. \
+                    "I can show you usage statistics using the inspect_usage_stats tool. \
                      This provides:\n\n\
                      - Total tool calls (successful and failed)\n\
                      - Success/failure rates\n\
@@ -76,7 +86,7 @@ impl Tool for GetUsageStatsTool {
             PromptMessage {
                 role: PromptMessageRole::Assistant,
                 content: PromptMessageContent::text(
-                    "[Calling get_usage_stats tool]\n\n\
+                    "[Calling inspect_usage_stats tool]\n\n\
                      The statistics show all tool usage since the server started. \
                      This is useful for debugging, understanding usage patterns, \
                      and identifying frequently used tools.",

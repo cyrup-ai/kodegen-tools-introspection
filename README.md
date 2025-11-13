@@ -8,7 +8,7 @@ Introspection tools for monitoring and debugging tool usage in AI agent systems.
 
 This MCP server provides two essential introspection tools:
 
-### 🔍 get_recent_tool_calls
+### 🔍 inspect_tool_calls
 
 Get chronological tool call history with full arguments and outputs.
 
@@ -36,7 +36,7 @@ Get chronological tool call history with full arguments and outputs.
 { "since": "2024-10-12T20:00:00Z" }
 ```
 
-### 📊 get_usage_stats
+### 📊 inspect_usage_stats
 
 Get comprehensive usage statistics and performance metrics.
 
@@ -72,11 +72,11 @@ cargo build --release
 ### As a Library
 
 ```rust
-use kodegen_tools_introspection::{GetUsageStatsTool, GetRecentToolCallsTool};
+use kodegen_tools_introspection::{InspectUsageStatsTool, InspectToolCallsTool};
 
 // Create tools
-let usage_tool = GetUsageStatsTool::new(usage_tracker);
-let history_tool = GetRecentToolCallsTool::new();
+let usage_tool = InspectUsageStatsTool::new(usage_tracker);
+let history_tool = InspectToolCallsTool::new();
 
 // Register with MCP routers
 let (tool_router, prompt_router) = register_tool(

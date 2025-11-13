@@ -1,18 +1,18 @@
 use kodegen_mcp_tool::Tool;
 use kodegen_mcp_tool::error::McpError;
 use kodegen_mcp_tool::tool_history;
-use kodegen_mcp_schema::introspection::{GetRecentToolCallsArgs, GetRecentToolCallsPromptArgs};
-use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::{Value, json};
+use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsPromptArgs};
+use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
+use serde_json::json;
 
 // ============================================================================
 // TOOL STRUCT
 // ============================================================================
 
 #[derive(Clone, Default)]
-pub struct GetRecentToolCallsTool;
+pub struct InspectToolCallsTool;
 
-impl GetRecentToolCallsTool {
+impl InspectToolCallsTool {
     #[must_use]
     pub fn new() -> Self {
         Self
@@ -23,12 +23,12 @@ impl GetRecentToolCallsTool {
 // TOOL IMPLEMENTATION
 // ============================================================================
 
-impl Tool for GetRecentToolCallsTool {
-    type Args = GetRecentToolCallsArgs;
-    type PromptArgs = GetRecentToolCallsPromptArgs;
+impl Tool for InspectToolCallsTool {
+    type Args = InspectToolCallsArgs;
+    type PromptArgs = InspectToolCallsPromptArgs;
 
     fn name() -> &'static str {
-        "get_recent_tool_calls"
+        "inspect_tool_calls"
     }
 
     fn description() -> &'static str {
@@ -60,11 +60,10 @@ impl Tool for GetRecentToolCallsTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
         let history = tool_history::get_global_history()
             .ok_or_else(|| McpError::Other(anyhow::anyhow!("Tool history not initialized")))?;
 
-        // Get filtered calls
         let calls = history
             .get_recent_calls(
                 args.max_results,
@@ -76,14 +75,73 @@ impl Tool for GetRecentToolCallsTool {
 
         let stats = history.get_stats().await;
 
-        Ok(json!({
-            "summary": format!(
-                "Tool Call History ({} results, {} total in memory)",
+        let mut contents = Vec::new();
+
+        // Content 1: Terminal formatted summary
+        let summary = if calls.is_empty() {
+            format!(
+                "📝 Tool Call History\n\n\
+                 No tool calls found matching your criteria.\n\n\
+                 Total entries in memory: {}",
+                stats.total_entries
+            )
+        } else {
+            let mut output = String::new();
+            output.push_str(&format!(
+                "📝 Tool Call History\n\n\
+                 Results: {} of {} total in memory\n",
                 calls.len(),
                 stats.total_entries
-            ),
+            ));
+            
+            if let Some(ref tool_name) = args.tool_name {
+                output.push_str(&format!("Filtered by tool: {}\n", tool_name));
+            }
+            
+            if let Some(ref since) = args.since {
+                output.push_str(&format!("Since: {}\n", since));
+            }
+            
+            output.push_str("\n📋 Recent Calls:\n\n");
+            
+            // Show first 5 calls in detail
+            for (i, call) in calls.iter().take(5).enumerate() {
+                output.push_str(&format!(
+                    "{}. {} ({}ms)\n   Time: {}\n   Args: {}\n\n",
+                    i + 1,
+                    call.tool_name,
+                    call.duration_ms.unwrap_or(0),
+                    call.timestamp,
+                    serde_json::to_string(&call.arguments).unwrap_or_else(|_| "{}".to_string())
+                ));
+            }
+            
+            if calls.len() > 5 {
+                output.push_str(&format!("... and {} more calls (see JSON for full list)\n", calls.len() - 5));
+            }
+            
+            output
+        };
+        
+        contents.push(Content::text(summary));
+
+        // Content 2: JSON metadata for machine parsing
+        let metadata = json!({
+            "success": true,
+            "total_entries_in_memory": stats.total_entries,
+            "returned_count": calls.len(),
+            "filter_tool_name": args.tool_name,
+            "filter_since": args.since,
+            "offset": args.offset,
+            "max_results": args.max_results,
             "calls": calls
-        }))
+        });
+        
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
@@ -95,13 +153,13 @@ impl Tool for GetRecentToolCallsTool {
             PromptMessage {
                 role: PromptMessageRole::User,
                 content: PromptMessageContent::text(
-                    "How do I use get_recent_tool_calls to see what work has been done?",
+                    "How do I use inspect_tool_calls to see what work has been done?",
                 ),
             },
             PromptMessage {
                 role: PromptMessageRole::Assistant,
                 content: PromptMessageContent::text(
-                    "The get_recent_tool_calls tool helps you understand what tools have been \
+                    "The inspect_tool_calls tool helps you understand what tools have been \
                      executed and what they did. This is especially useful when:\n\n\
                      1. **New chat context**: You join a new chat and want to understand what \
                      work was already done\n\n\
@@ -112,19 +170,19 @@ impl Tool for GetRecentToolCallsTool {
                      Usage examples:\n\n\
                      ```\n\
                      # Get first 50 tool calls (default)\n\
-                     get_recent_tool_calls({})\n\n\
+                     inspect_tool_calls({})\n\n\
                      # Get first 100 calls\n\
-                     get_recent_tool_calls({ max_results: 100 })\n\n\
+                     inspect_tool_calls({ max_results: 100 })\n\n\
                      # Get calls 50-99 (pagination)\n\
-                     get_recent_tool_calls({ offset: 50, max_results: 50 })\n\n\
+                     inspect_tool_calls({ offset: 50, max_results: 50 })\n\n\
                      # Get last 20 calls (most recent)\n\
-                     get_recent_tool_calls({ offset: -20 })\n\n\
+                     inspect_tool_calls({ offset: -20 })\n\n\
                      # Get last 10 read_file calls\n\
-                     get_recent_tool_calls({ tool_name: \"read_file\", offset: -10 })\n\n\
+                     inspect_tool_calls({ tool_name: \"read_file\", offset: -10 })\n\n\
                      # Get only read_file calls\n\
-                     get_recent_tool_calls({ tool_name: \"read_file\" })\n\n\
+                     inspect_tool_calls({ tool_name: \"read_file\" })\n\n\
                      # Get calls since a specific timestamp\n\
-                     get_recent_tool_calls({ since: \"2024-10-12T20:00:00Z\" })\n\
+                     inspect_tool_calls({ since: \"2024-10-12T20:00:00Z\" })\n\
                      ```\n\n\
                      The response includes:\n\
                      - Timestamp of each call\n\

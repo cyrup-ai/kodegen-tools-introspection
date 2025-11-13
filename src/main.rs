@@ -19,13 +19,13 @@ async fn main() -> Result<()> {
         let (tool_router, prompt_router) = register_tool(
             tool_router,
             prompt_router,
-            kodegen_tools_introspection::GetUsageStatsTool::new(tracker.clone()),
+            kodegen_tools_introspection::InspectUsageStatsTool::new(tracker.clone()),
         );
 
         let (tool_router, prompt_router) = register_tool(
             tool_router,
             prompt_router,
-            kodegen_tools_introspection::GetRecentToolCallsTool::new(),
+            kodegen_tools_introspection::InspectToolCallsTool::new(),
         );
 
         Ok(RouterSet::new(tool_router, prompt_router, managers))
