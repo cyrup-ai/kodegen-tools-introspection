@@ -1,7 +1,7 @@
 mod common;
 
 use anyhow::Context;
-use kodegen_mcp_client::tools;
+use kodegen_mcp_schema::introspection::*;
 use serde_json::json;
 use tracing::{error, info};
 
@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
 
     // 1. INSPECT_USAGE_STATS - Get usage statistics
     info!("1. Testing inspect_usage_stats");
-    match client.call_tool(tools::INSPECT_USAGE_STATS, json!({})).await {
+    match client.call_tool(INSPECT_USAGE_STATS, json!({})).await {
         Ok(result) => info!("Usage stats: {:?}", result),
         Err(e) => error!("Failed to get usage stats: {}", e),
     }
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     // 2. INSPECT_TOOL_CALLS - Get recent tool call history
     info!("2. Testing inspect_tool_calls");
     match client
-        .call_tool(tools::INSPECT_TOOL_CALLS, json!({ "max_results": 10 }))
+        .call_tool(INSPECT_TOOL_CALLS, json!({ "max_results": 10 }))
         .await
     {
         Ok(result) => info!("Recent tool calls: {:?}", result),

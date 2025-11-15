@@ -1,7 +1,7 @@
 use kodegen_mcp_tool::Tool;
 use kodegen_mcp_tool::error::McpError;
 use kodegen_mcp_tool::tool_history;
-use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsPromptArgs};
+use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsPromptArgs, INSPECT_TOOL_CALLS};
 use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 use serde_json::json;
 
@@ -28,7 +28,7 @@ impl Tool for InspectToolCallsTool {
     type PromptArgs = InspectToolCallsPromptArgs;
 
     fn name() -> &'static str {
-        "inspect_tool_calls"
+        INSPECT_TOOL_CALLS
     }
 
     fn description() -> &'static str {

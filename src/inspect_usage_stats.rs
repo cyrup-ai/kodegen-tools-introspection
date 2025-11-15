@@ -1,6 +1,6 @@
 use kodegen_mcp_tool::Tool;
 use kodegen_mcp_tool::error::McpError;
-use kodegen_mcp_schema::introspection::{InspectUsageStatsArgs, InspectUsageStatsPromptArgs};
+use kodegen_mcp_schema::introspection::{InspectUsageStatsArgs, InspectUsageStatsPromptArgs, INSPECT_USAGE_STATS};
 use kodegen_utils::usage_tracker::UsageTracker;
 use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 
@@ -29,7 +29,7 @@ impl Tool for InspectUsageStatsTool {
     type PromptArgs = InspectUsageStatsPromptArgs;
 
     fn name() -> &'static str {
-        "inspect_usage_stats"
+        INSPECT_USAGE_STATS
     }
 
     fn description() -> &'static str {
