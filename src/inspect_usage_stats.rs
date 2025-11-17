@@ -40,11 +40,11 @@ impl Tool for InspectUsageStatsTool {
     async fn execute(&self, _args: Self::Args) -> Result<Vec<Content>, McpError> {
         let mut contents = Vec::new();
 
-        // Content 1: Terminal formatted summary (use existing get_summary method)
-        let summary = self.usage_tracker.get_summary();
+        // Content 1: Terminal formatted summary (compact 2-line format)
+        let summary = self.usage_tracker.get_formatted_summary();
         contents.push(Content::text(summary));
 
-        // Content 2: JSON metadata (use new get_stats method)
+        // Content 2: JSON metadata (use existing get_stats method)
         let stats = self.usage_tracker.get_stats();
         let json_str = serde_json::to_string_pretty(&stats)
             .unwrap_or_else(|_| "{}".to_string());
