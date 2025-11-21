@@ -1,4 +1,4 @@
-use kodegen_mcp_tool::Tool;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext};
 use kodegen_mcp_tool::error::McpError;
 use kodegen_mcp_schema::introspection::{InspectUsageStatsArgs, InspectUsageStatsPromptArgs, INSPECT_USAGE_STATS};
 use kodegen_utils::usage_tracker::UsageTracker;
@@ -37,7 +37,7 @@ impl Tool for InspectUsageStatsTool {
          success/failure rates, and performance metrics."
     }
 
-    async fn execute(&self, _args: Self::Args) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, _args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
         let mut contents = Vec::new();
 
         // Content 1: Terminal formatted summary (compact 2-line format)

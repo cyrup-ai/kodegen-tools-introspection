@@ -1,4 +1,4 @@
-use kodegen_mcp_tool::Tool;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext};
 use kodegen_mcp_tool::error::McpError;
 use kodegen_mcp_tool::tool_history;
 use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsPromptArgs, INSPECT_TOOL_CALLS};
@@ -60,7 +60,7 @@ impl Tool for InspectToolCallsTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
         let history = tool_history::get_global_history()
             .ok_or_else(|| McpError::Other(anyhow::anyhow!("Tool history not initialized")))?;
 
