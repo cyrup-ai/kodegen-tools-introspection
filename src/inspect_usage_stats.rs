@@ -62,34 +62,108 @@ impl Tool for InspectUsageStatsTool {
             PromptMessage {
                 role: PromptMessageRole::User,
                 content: PromptMessageContent::text(
-                    "How can I check what tools have been used and see usage statistics?",
+                    "How can I track tool usage and debug failures in my workflow? \
+                     I want to understand which tools are being used and if any are failing.",
                 ),
             },
             PromptMessage {
                 role: PromptMessageRole::Assistant,
                 content: PromptMessageContent::text(
-                    "I can show you usage statistics using the inspect_usage_stats tool. \
-                     This provides:\n\n\
-                     - Total tool calls (successful and failed)\n\
-                     - Success/failure rates\n\
-                     - Breakdown by category (filesystem, terminal, edit, search, etc.)\n\
+                    "The inspect_usage_stats tool is perfect for this. It provides comprehensive \
+                     usage tracking and debugging insights:\n\n\
+                     **When to use it:**\n\
+                     - Mid-session debugging: When workflows seem slow or unreliable\n\
+                     - End-of-session review: Understand what worked and what didn't\n\
+                     - Performance analysis: Identify which tool categories are most used\n\
+                     - Failure investigation: Spot tools with high failure rates\n\n\
+                     **What it provides:**\n\
+                     - Total tool calls with success/failure breakdown\n\
+                     - Success rate percentages\n\
+                     - Category-level statistics (filesystem, terminal, search, etc.)\n\
                      - Per-tool call counts\n\
-                     - Session information\n\
-                     - Timestamps\n\n\
-                     Let me get those stats for you.",
+                     - Session info and timestamps",
                 ),
             },
             PromptMessage {
                 role: PromptMessageRole::User,
-                content: PromptMessageContent::text("Yes, please show me the stats."),
+                content: PromptMessageContent::text(
+                    "What do the statistics mean? How do I interpret the output?",
+                ),
             },
             PromptMessage {
                 role: PromptMessageRole::Assistant,
                 content: PromptMessageContent::text(
-                    "[Calling inspect_usage_stats tool]\n\n\
-                     The statistics show all tool usage since the server started. \
-                     This is useful for debugging, understanding usage patterns, \
-                     and identifying frequently used tools.",
+                    "The tool returns two formats:\n\n\
+                     **1. Summary Line (compact format):**\n\
+                     Example: \"Total: 42 calls, Success rate: 95.2% (40 successful, 2 failed)\"\n\n\
+                     **2. JSON Statistics (detailed breakdown):**\n\
+                     - `success_rate`: Calculated as (successful_calls / total_calls) × 100\n\
+                     - `category_breakdown`: Shows distribution across tool types\n  \
+                       Example: {\"filesystem\": 120, \"terminal\": 45, \"edit\": 30}\n\
+                     - `per_tool_counts`: Individual tool usage\n  \
+                       Example: {\"fs_read_file\": 80, \"fs_search\": 40}\n\
+                     - `session_info`: When tracking started and current session ID\n\n\
+                     **Key metrics to watch:**\n\
+                     - Success rate above 90% is healthy\n\
+                     - Category breakdown helps identify workflow patterns\n\
+                     - Per-tool counts show which operations are most common",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "How do I identify problematic tools that might be causing issues?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "Look for these warning signs in the statistics:\n\n\
+                     **Low success rates (< 80%):**\n\
+                     - Indicates repeated failures with specific tools\n\
+                     - May point to configuration issues or invalid inputs\n\n\
+                     **High failure counts:**\n\
+                     - Check per-tool breakdown for tools with many failed calls\n\
+                     - Example: If fs_read_file shows 20 failures, files may not exist\n\n\
+                     **Patterns to investigate:**\n\
+                     - Consistent failures in one category (e.g., all terminal tools failing)\n\
+                     - Sudden drop in success rate during session\n\
+                     - Tools that work once then fail repeatedly\n\n\
+                     **Important gotcha:**\n\
+                     Failures don't always mean the tool is broken. Common causes:\n\
+                     - Input validation errors (wrong file paths, invalid arguments)\n\
+                     - Expected failures (checking if file exists, it doesn't)\n\
+                     - Permission issues or missing dependencies\n\n\
+                     Use the failure information to guide debugging, not as definitive proof of bugs.",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::User,
+                content: PromptMessageContent::text(
+                    "What's the difference between session stats and global stats? \
+                     When should I use each?",
+                ),
+            },
+            PromptMessage {
+                role: PromptMessageRole::Assistant,
+                content: PromptMessageContent::text(
+                    "The inspect_usage_stats tool tracks statistics for the current session:\n\n\
+                     **Current Session Stats:**\n\
+                     - Covers from when the MCP server started until now\n\
+                     - Resets when server restarts\n\
+                     - Best for: Active debugging of current workflow problems\n\
+                     - Use when: Something seems wrong in your current work\n\n\
+                     **Global/Historical Stats:**\n\
+                     - Would require persistent storage (not currently implemented)\n\
+                     - Would show long-term patterns across multiple sessions\n\
+                     - Best for: Understanding typical usage over time\n\n\
+                     **Best practices:**\n\
+                     - Check stats mid-session if workflows slow down unexpectedly\n\
+                     - Review at end of session to understand what was accomplished\n\
+                     - Compare success rates across different types of tasks\n\
+                     - Use category breakdown to optimize tool selection\n\n\
+                     The session-scoped stats are perfect for immediate debugging and understanding \
+                     current workflow health.",
                 ),
             },
         ])
