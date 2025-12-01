@@ -12,7 +12,7 @@ Introspection tools for monitoring and debugging tool usage in AI agent systems.
 
 This MCP server provides two essential introspection tools:
 
-### 🔍 inspect_tool_calls
+### 🔍 inspect_tool_calls 
 
 Get chronological tool call history with full arguments and outputs.
 
