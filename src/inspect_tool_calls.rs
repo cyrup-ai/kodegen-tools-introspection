@@ -1,9 +1,8 @@
-use kodegen_mcp_tool::{Tool, ToolExecutionContext};
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolArgs, ToolResponse};
 use kodegen_mcp_tool::error::McpError;
 use kodegen_mcp_tool::tool_history;
-use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsPromptArgs, INSPECT_TOOL_CALLS};
-use rmcp::model::{Content, PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::json;
+use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsPromptArgs, InspectToolCallsOutput, ToolCallRecord, INSPECT_TOOL_CALLS};
+use rmcp::model::{PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole};
 
 // ============================================================================
 // TOOL STRUCT
@@ -60,7 +59,7 @@ impl Tool for InspectToolCallsTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as ToolArgs>::Output>, McpError> {
         let history = tool_history::get_global_history()
             .ok_or_else(|| McpError::Other(anyhow::anyhow!("Tool history not initialized")))?;
 
@@ -75,9 +74,7 @@ impl Tool for InspectToolCallsTool {
 
         let stats = history.get_stats().await;
 
-        let mut contents = Vec::new();
-
-        // Content 1: Terminal formatted summary
+        // Terminal formatted summary
         let summary = if calls.is_empty() {
             "\x1b[35m󰋚 Tool Call History\x1b[0m\n\
              󰘖 Calls: 0 · No calls matching criteria".to_string()
@@ -93,26 +90,28 @@ impl Tool for InspectToolCallsTool {
                 latest_tool
             )
         };
-        
-        contents.push(Content::text(summary));
 
-        // Content 2: JSON metadata for machine parsing
-        let metadata = json!({
-            "success": true,
-            "total_entries_in_memory": stats.total_entries,
-            "returned_count": calls.len(),
-            "filter_tool_name": args.tool_name,
-            "filter_since": args.since,
-            "offset": args.offset,
-            "max_results": args.max_results,
-            "calls": calls
-        });
-        
-        let json_str = serde_json::to_string_pretty(&metadata)
-            .unwrap_or_else(|_| "{}".to_string());
-        contents.push(Content::text(json_str));
+        // Convert calls to typed output format
+        let typed_calls: Vec<ToolCallRecord> = calls.iter().map(|c| ToolCallRecord {
+            tool_name: c.tool_name.clone(),
+            timestamp: c.timestamp.clone(),
+            duration_ms: c.duration_ms,
+            args: c.arguments.clone(),
+            output: c.output.clone(),
+        }).collect();
 
-        Ok(contents)
+        let output = InspectToolCallsOutput {
+            success: true,
+            count: typed_calls.len(),
+            total_entries_in_memory: stats.total_entries,
+            calls: typed_calls,
+            filter_tool_name: args.tool_name,
+            filter_since: args.since,
+            offset: args.offset,
+            max_results: args.max_results,
+        };
+
+        Ok(ToolResponse::new(summary, output))
     }
 
     fn prompt_arguments() -> Vec<PromptArgument> {
