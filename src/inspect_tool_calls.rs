@@ -91,13 +91,13 @@ impl Tool for InspectToolCallsTool {
             )
         };
 
-        // Convert calls to typed output format (serialize Value to JSON strings)
+        // Convert calls to typed output format (direct field mapping)
         let typed_calls: Vec<ToolCallRecord> = calls.iter().map(|c| ToolCallRecord {
             tool_name: c.tool_name.clone(),
             timestamp: c.timestamp.clone(),
             duration_ms: c.duration_ms,
-            args_json: serde_json::to_string(&c.arguments).unwrap_or_default(),
-            output_json: serde_json::to_string(&c.output).unwrap_or_default(),
+            args_json: c.args_json.clone(),
+            output_json: c.output_json.clone(),
         }).collect();
 
         let output = InspectToolCallsOutput {
