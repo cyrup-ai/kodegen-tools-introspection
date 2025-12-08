@@ -5,6 +5,7 @@
 
 mod inspect_tool_calls;
 mod inspect_usage_stats;
+pub mod usage_tracker;
 
 pub use inspect_tool_calls::InspectToolCallsTool;
 pub use inspect_usage_stats::InspectUsageStatsTool;
@@ -15,7 +16,7 @@ pub use inspect_usage_stats::InspectUsageStatsTool;
 /// This function is non-blocking - the server runs in background tasks.
 ///
 /// # Arguments
-/// * `addr` - Socket address to bind to (e.g., "127.0.0.1:30447")
+/// * `addr` - Socket address to bind to (e.g., "127.0.0.1:30446")
 /// * `tls_cert` - Optional path to TLS certificate file
 /// * `tls_key` - Optional path to TLS private key file
 ///
@@ -26,41 +27,18 @@ pub async fn start_server(
     tls_cert: Option<std::path::PathBuf>,
     tls_key: Option<std::path::PathBuf>,
 ) -> anyhow::Result<kodegen_server_http::ServerHandle> {
-    use kodegen_server_http::{create_http_server, Managers, RouterSet, register_tool};
-    use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
-    use std::time::Duration;
+    // Bind to the address first
+    let listener = tokio::net::TcpListener::bind(addr).await
+        .map_err(|e| anyhow::anyhow!("Failed to bind to {}: {}", addr, e))?;
 
+    // Convert separate cert/key into Option<(cert, key)> tuple
     let tls_config = match (tls_cert, tls_key) {
         (Some(cert), Some(key)) => Some((cert, key)),
         _ => None,
     };
 
-    let shutdown_timeout = Duration::from_secs(30);
-    let session_keep_alive = Duration::ZERO;
-
-    create_http_server("introspection", addr, tls_config, shutdown_timeout, session_keep_alive, |_config, tracker| {
-        let usage_tracker = tracker.clone();
-        Box::pin(async move {
-            let mut tool_router = ToolRouter::new();
-            let mut prompt_router = PromptRouter::new();
-            let managers = Managers::new();
-
-            // Register all 2 introspection tools
-            (tool_router, prompt_router) = register_tool(
-                tool_router,
-                prompt_router,
-                crate::InspectUsageStatsTool::new(usage_tracker.clone()),
-            );
-
-            (tool_router, prompt_router) = register_tool(
-                tool_router,
-                prompt_router,
-                crate::InspectToolCallsTool::new(),
-            );
-
-            Ok(RouterSet::new(tool_router, prompt_router, managers))
-        })
-    }).await
+    // Delegate to start_server_with_listener
+    start_server_with_listener(listener, tls_config).await
 }
 
 /// Start introspection HTTP server using pre-bound listener (TOCTOU-safe)
@@ -78,16 +56,12 @@ pub async fn start_server_with_listener(
     listener: tokio::net::TcpListener,
     tls_config: Option<(std::path::PathBuf, std::path::PathBuf)>,
 ) -> anyhow::Result<kodegen_server_http::ServerHandle> {
-    use kodegen_server_http::{create_http_server_with_listener, Managers, RouterSet, register_tool};
+    use kodegen_server_http::{ServerBuilder, Managers, RouterSet, register_tool};
     use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
-    use std::time::Duration;
 
-    let shutdown_timeout = Duration::from_secs(30);
-    let session_keep_alive = Duration::ZERO;
-
-    create_http_server_with_listener("introspection", listener, tls_config, shutdown_timeout, session_keep_alive, |_config, tracker| {
-        let usage_tracker = tracker.clone();
-        Box::pin(async move {
+    let mut builder = ServerBuilder::new()
+        .category(kodegen_config::CATEGORY_INTROSPECTION)
+        .register_tools(|| async {
             let mut tool_router = ToolRouter::new();
             let mut prompt_router = PromptRouter::new();
             let managers = Managers::new();
@@ -96,7 +70,7 @@ pub async fn start_server_with_listener(
             (tool_router, prompt_router) = register_tool(
                 tool_router,
                 prompt_router,
-                crate::InspectUsageStatsTool::new(usage_tracker.clone()),
+                crate::InspectUsageStatsTool::new(),
             );
 
             (tool_router, prompt_router) = register_tool(
@@ -107,5 +81,11 @@ pub async fn start_server_with_listener(
 
             Ok(RouterSet::new(tool_router, prompt_router, managers))
         })
-    }).await
+        .with_listener(listener);
+
+    if let Some((cert, key)) = tls_config {
+        builder = builder.with_tls_config(cert, key);
+    }
+
+    builder.serve().await
 }

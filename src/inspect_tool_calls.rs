@@ -1,7 +1,7 @@
 use kodegen_mcp_schema::{Tool, ToolExecutionContext, ToolArgs, ToolResponse};
 use kodegen_mcp_schema::McpError;
-use kodegen_mcp_schema::tool::tool_history;
 use kodegen_mcp_schema::introspection::{InspectToolCallsArgs, InspectToolCallsOutput, InspectToolCallsPrompts, ToolCallRecord, INSPECT_TOOL_CALLS};
+use kodegend_client_ipc::get_tool_history;
 
 
 // ============================================================================
@@ -59,20 +59,58 @@ impl Tool for InspectToolCallsTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as ToolArgs>::Output>, McpError> {
-        let history = tool_history::get_global_history()
-            .ok_or_else(|| McpError::Other(anyhow::anyhow!("Tool history not initialized")))?;
+    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as ToolArgs>::Output>, McpError> {
+        // Get connection ID from context
+        let connection_id = ctx.connection_id()
+            .ok_or_else(|| McpError::Other(anyhow::anyhow!("No connection ID available - tool history requires connection context")))?;
 
-        let calls = history
-            .get_recent_calls(
-                args.max_results,
-                args.offset,
-                args.tool_name.as_deref(),
-                args.since.as_deref(),
-            )
-            .await;
+        // Query kodegend daemon via IPC for aggregated tool history
+        let history = get_tool_history(connection_id)
+            .map_err(|e| McpError::Other(anyhow::anyhow!("Failed to query tool history from kodegend: {}", e)))?;
 
-        let stats = history.get_stats().await;
+        // Flatten all calls from all servers and map IPC types to schema types
+        let mut all_calls: Vec<ToolCallRecord> = history.servers
+            .into_iter()
+            .flat_map(|server| server.calls)
+            .map(|ipc_call| ToolCallRecord {
+                tool_name: ipc_call.tool_name,
+                timestamp: ipc_call.timestamp,
+                duration_ms: ipc_call.duration_ms,
+                args_json: ipc_call.args_json,
+                output_json: ipc_call.output_json,
+            })
+            .collect();
+
+        // Apply tool name filter
+        if let Some(ref tool_name) = args.tool_name {
+            all_calls.retain(|call| &call.tool_name == tool_name);
+        }
+
+        // Apply timestamp filter (since)
+        if let Some(ref since) = args.since {
+            all_calls.retain(|call| call.timestamp >= *since);
+        }
+
+        // Sort by timestamp descending (newest first)
+        all_calls.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+        // Apply offset and limit
+        let offset = args.offset;
+        let max_results = args.max_results;
+
+        let start_idx = if offset < 0 {
+            // Negative offset = tail behavior (last N items)
+            let abs_offset: usize = offset.unsigned_abs().try_into().unwrap();
+            all_calls.len().saturating_sub(abs_offset)
+        } else {
+            offset as usize
+        };
+
+        let calls: Vec<ToolCallRecord> = all_calls
+            .into_iter()
+            .skip(start_idx)
+            .take(max_results)
+            .collect();
 
         // Terminal formatted summary
         let summary = if calls.is_empty() {
@@ -91,20 +129,11 @@ impl Tool for InspectToolCallsTool {
             )
         };
 
-        // Convert calls to typed output format (direct field mapping)
-        let typed_calls: Vec<ToolCallRecord> = calls.iter().map(|c| ToolCallRecord {
-            tool_name: c.tool_name.clone(),
-            timestamp: c.timestamp.clone(),
-            duration_ms: c.duration_ms,
-            args_json: c.args_json.clone(),
-            output_json: c.output_json.clone(),
-        }).collect();
-
         let output = InspectToolCallsOutput {
             success: true,
-            count: typed_calls.len(),
-            total_entries_in_memory: stats.total_entries,
-            calls: typed_calls,
+            count: calls.len(),
+            total_entries_in_memory: history.total_calls,
+            calls,
             filter_tool_name: args.tool_name,
             filter_since: args.since,
             offset: args.offset,
