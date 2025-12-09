@@ -8,7 +8,7 @@
 
 Introspection tools for monitoring and debugging tool usage in AI agent systems. Part of the [KODEGEN.ᴀɪ](https://kodegen.ai) ecosystem.
 
-## Features
+## Features 
 
 This MCP server provides two essential introspection tools:
 
