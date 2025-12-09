@@ -117,7 +117,7 @@ impl UsageTracker {
     fn get_category(tool_name: &str) -> Option<&'static str> {
         inventory::iter::<kodegen_mcp_schema::ToolMetadata>()
             .find(|tool| tool.name == tool_name)
-            .map(|tool| tool.category)
+            .map(|tool| tool.category.name)
     }
 
     /// Track a successful tool call (fire-and-forget, never blocks)
@@ -192,18 +192,18 @@ impl UsageTracker {
                             // Update category counter
                             if let Some(category) = Self::get_category(&tool_name) {
                                 match category {
-                                    kodegen_config::CATEGORY_FILESYSTEM => {
+                                    name if name == kodegen_config::CATEGORY_FILESYSTEM.name => {
                                         stats_guard.filesystem_operations += 1
                                     }
-                                    kodegen_config::CATEGORY_TERMINAL => {
+                                    name if name == kodegen_config::CATEGORY_TERMINAL.name => {
                                         stats_guard.terminal_operations += 1
                                     }
-                                    kodegen_config::CATEGORY_INTROSPECTION
-                                    | kodegen_config::CATEGORY_CONFIG
-                                    | kodegen_config::CATEGORY_PROMPT => {
+                                    name if name == kodegen_config::CATEGORY_INTROSPECTION.name
+                                        || name == kodegen_config::CATEGORY_CONFIG.name
+                                        || name == kodegen_config::CATEGORY_PROMPT.name => {
                                         stats_guard.config_operations += 1
                                     }
-                                    kodegen_config::CATEGORY_PROCESS => {
+                                    name if name == kodegen_config::CATEGORY_PROCESS.name => {
                                         stats_guard.process_operations += 1
                                     }
                                     _ => {}
