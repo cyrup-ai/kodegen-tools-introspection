@@ -339,8 +339,8 @@ impl UsageTracker {
 
         // Format with magenta color only on line 1, using Nerd Font icons
         format!(
-            "\x1b[35m󰊢 Usage Statistics\x1b[0m\n\
-             󰋼 Total calls: {} · Unique tools: {} · Errors: {}",
+            "\x1b[35mUsage Statistics\x1b[0m\n\
+             Total calls: {} · Unique tools: {} · Errors: {}",
             total_calls,
             unique_tools,
             error_count

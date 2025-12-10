@@ -114,16 +114,16 @@ impl Tool for InspectToolCallsTool {
 
         // Terminal formatted summary
         let summary = if calls.is_empty() {
-            "\x1b[35m󰋚 Tool Call History\x1b[0m\n\
-             󰘖 Calls: 0 · No calls matching criteria".to_string()
+            "\x1b[35mTool Call History\x1b[0m\n\
+             Calls: 0 · No calls matching criteria".to_string()
         } else {
             let latest_tool = calls.first()
                 .map(|c| c.tool_name.as_str())
                 .unwrap_or("unknown");
 
             format!(
-                "\x1b[35m󰋚 Tool Call History\x1b[0m\n\
-                 󰘖 Calls: {} · Latest: {}",
+                "\x1b[35mTool Call History\x1b[0m\n\
+                 Calls: {} · Latest: {}",
                 calls.len(),
                 latest_tool
             )

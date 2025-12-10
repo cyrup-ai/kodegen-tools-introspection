@@ -123,8 +123,8 @@ impl Tool for InspectUsageStatsTool {
 
         // Terminal formatted summary
         let summary = format!(
-            "\x1b[35m󰋚 Usage Statistics\x1b[0m\n\
-             󰘖 Total: {} · Success: {} · Failed: {} · Rate: {:.1}%",
+            "\x1b[35mUsage Statistics\x1b[0m\n\
+             Total: {} · Success: {} · Failed: {} · Rate: {:.1}%",
             total_calls,
             successful_calls,
             failed_calls,
